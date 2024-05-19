@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jogo da Cobrinha</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        #game {
+            border: 1px solid #000;
+            background-color: #fff;
+            position: relative;
+            width: 400px;
+            height: 400px;
+            margin-top: 20px;
+        }
+        #pause-overlay {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            color: white;
+            font-size: 18px;
+            text-align: center;
+            padding-top: 150px;
+        }
+        #info {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #fff;
+            border: 1px solid #000;
+            width: 400px;
+        }
+        button {
+            margin-top: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+        #score {
+            color: black;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Jogo da Cobrinha</h1>
+    <div id="score">Pontuação: 0</div>
+    <div id="game">
+        <canvas id="gameCanvas" width="400" height="400"></canvas>
+        <div id="pause-overlay">
+            <p id="info-text"></p>
+            <button id="resume-btn">Retomar Jogo</button>
+        </div>
+    </div>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const box = 20;
+        let snake = [];
+        snake[0] = {x: 9 * box, y: 10 * box};
+
+        let food = {
+            x: Math.floor(Math.random() * 19 + 1) * box,
+            y: Math.floor(Math.random() * 19 + 1) * box
+        };
+
+        let score = 0;
+        let d;
+        let gameInterval;
+        let speed = 200;
+
+        const infoTexts = [
+            "Definição: A orbitopatia de Graves é uma condição autoimune associada à doença de Graves. Ela causa inflamação e outros sintomas nos músculos e tecidos ao redor dos olhos.",
+            "Principais Sintomas: Os sintomas incluem olhos protuberantes (exoftalmia), sensação de areia nos olhos, lacrimejamento excessivo, dor ocular, visão dupla e, em casos graves, compressão do nervo óptico.",
+            "Quadro Clínico: A doença pode causar inflamação e fibrose dos tecidos orbitais, levando a complicações como ulceração corneana e neuropatia óptica.",
+            "Tratamento: Os tratamentos incluem corticosteróides, radioterapia orbital, cirurgia descompressiva orbital e, em alguns casos, cirurgia dos músculos oculares.",
+            "Curiosidades: A orbitopatia de Graves pode afetar a qualidade de vida dos pacientes devido às alterações estéticas e visuais. É uma das poucas doenças autoimunes que afetam os olhos de forma tão significativa.",
+            "Causa: A orbitopatia de Graves é causada por uma resposta autoimune em que o sistema imunológico ataca erroneamente os tecidos ao redor dos olhos.",
+            "Epidemiologia: A doença é mais comum em mulheres e geralmente se manifesta entre os 30 e 50 anos de idade.",
+            "Diagnóstico: O diagnóstico é feito através de avaliação clínica, exames de imagem como tomografia computadorizada ou ressonância magnética, e testes de função da tireoide.",
+            "Relação com a Tireoide: A orbitopatia de Graves frequentemente ocorre em pacientes com hipertireoidismo devido à doença de Graves, mas também pode ocorrer em pacientes eutireoideos ou hipotireoideos.",
+            "Genética: Fatores genéticos podem predispor um indivíduo a desenvolver orbitopatia de Graves, embora fatores ambientais também desempenhem um papel.",
+            "Sintomas Visuais: Além de exoftalmia e visão dupla, pacientes podem experimentar fotofobia, dificuldade para mover os olhos e diminuição da acuidade visual.",
+            "Complicações Oculares: Complicações podem incluir ulceração da córnea, infecções oculares e, em casos graves, perda da visão devido à compressão do nervo óptico.",
+            "Impacto Psicológico: A aparência alterada e os problemas visuais podem levar a ansiedade, depressão e baixa autoestima nos pacientes.",
+            "Cirurgia Descompressiva: Em casos graves, a cirurgia descompressiva orbital pode ser necessária para aliviar a pressão sobre o nervo óptico e melhorar a função ocular.",
+            "Radioterapia: A radioterapia orbital pode ser usada para reduzir a inflamação e o inchaço nos tecidos orbitais.",
+            "Imunossupressores: Em alguns casos, medicamentos imunossupressores podem ser utilizados para controlar a resposta autoimune.",
+            "Prognóstico: Com tratamento adequado, muitos pacientes conseguem controlar os sintomas e prevenir complicações graves.",
+            "Prevenção: Não há uma maneira conhecida de prevenir a orbitopatia de Graves, mas o controle adequado da função da tireoide pode reduzir o risco.",
+            "Pesquisa Atual: Estudos estão em andamento para entender melhor as causas da orbitopatia de Graves e desenvolver novos tratamentos.",
+            "Suporte ao Paciente: Grupos de apoio e aconselhamento psicológico podem ser úteis para pacientes lidando com os efeitos da doença."
+        ];
+
+        document.addEventListener("keydown", direction);
+
+        function direction(event) {
+            if (event.keyCode === 37 && d !== "RIGHT") {
+                d = "LEFT";
+            } else if (event.keyCode === 38 && d !== "DOWN") {
+                d = "UP";
+            } else if (event.keyCode === 39 && d !== "LEFT") {
+                d = "RIGHT";
+            } else if (event.keyCode === 40 && d !== "UP") {
+                d = "DOWN";
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            for (let i = 0; i < snake.length; i++) {
+                ctx.fillStyle = i === 0 ? "green" : "white";
+                ctx.fillRect(snake[i].x, snake[i].y, box, box);
+                ctx.strokeStyle = "red";
+                ctx.strokeRect(snake[i].x, snake[i].y, box, box);
+            }
+
+            ctx.fillStyle = "red";
+            ctx.fillRect(food.x, food.y, box, box);
+
+            let snakeX = snake[0].x;
+            let snakeY = snake[0].y;
+
+            if (d === "LEFT") snakeX -= box;
+            if (d === "UP") snakeY -= box;
+            if (d === "RIGHT") snakeX += box;
+            if (d === "DOWN") snakeY += box;
+
+            // Reaparecer do outro lado ao bater na parede
+            if (snakeX < 0) {
+                snakeX = canvas.width - box;
+            } else if (snakeX >= canvas.width) {
+                snakeX = 0;
+            }
+
+            if (snakeY < 0) {
+                snakeY = canvas.height - box;
+            } else if (snakeY >= canvas.height) {
+                snakeY = 0;
+            }
+
+            if (snakeX === food.x && snakeY === food.y) {
+                score++;
+                document.getElementById('score').textContent = "Pontuação: " + score;
+                food = {
+                    x: Math.floor(Math.random() * 19 + 1) * box,
+                    y: Math.floor(Math.random() * 19 + 1) * box
+                };
+
+                if (score % 5 === 0) {
+                    clearInterval(gameInterval);
+                    displayInfo();
+                }
+            } else {
+                snake.pop();
+            }
+
+            let newHead = {
+                x: snakeX,
+                y: snakeY
+            };
+
+            if (collision(newHead, snake)) {
+                clearInterval(gameInterval);
+                alert("Jogue de novo para aprender mais");
+                location.reload();
+            }
+
+            snake.unshift(newHead);
+        }
+
+        function collision(head, array) {
+            for (let i = 0; i < array.length; i++) {
+                if (head.x === array[i].x && head.y === array[i].y) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        function displayInfo() {
+            const infoOverlay = document.getElementById('pause-overlay');
+            const infoText = document.getElementById('info-text');
+            const resumeBtn = document.getElementById('resume-btn');
+
+            infoText.textContent = infoTexts[Math.floor(score / 5) - 1];
+            infoOverlay.style.display = 'block';
+
+            resumeBtn.onclick = () => {
+                infoOverlay.style.display = 'none';
+                gameInterval = setInterval(draw, speed);
+            };
+        }
+
+        gameInterval = setInterval(draw, speed);
+    </script>
+</body>
+</html>
+
